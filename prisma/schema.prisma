@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Claim {
+  id        Int      @id @default(autoincrement())
+  content   String
+  userId    Int
+  score     Int      @default(0)
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id])
+  Vote      Vote[]
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  username String  @unique
+  password String
+  Claim    Claim[]
+  Vote     Vote[]
+}
+
+model Vote {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  claimId   Int
+  type      VoteType
+  createdAt DateTime @default(now())
+  Claim     Claim    @relation(fields: [claimId], references: [id])
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, claimId])
+}
+
+enum VoteType {
+  agree
+  disagree
+}
+
+model Profile {
+  id                  String   @id @db.Uuid
+  name                String   @unique
+  gender              String
+  gender_probability  Float
+  sample_size         Int
+  age                 Int
+  age_group           String
+  country_id          String
+  country_probability Float
+  created_at          DateTime
+}

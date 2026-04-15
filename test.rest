@@ -1,0 +1,20 @@
+### Create Profile (New or Duplicate)
+POST http://localhost:3000/api/profiles
+Content-Type: application/json
+
+{ "name": "David" }
+
+### Get All Profiles (With or Without Filters)
+GET http://localhost:3000/api/profiles?name=david&gender=female
+
+### Get Single Profile
+GET http://localhost:3000/api/profiles/PASTE_ID_HERE
+
+### Delete Profile
+DELETE http://localhost:3000/api/profiles/019d930c-2930-76c7-8a67-d71e33b64a98
+
+### Test 422 Error (Invalid Type)
+POST http://localhost:3000/api/profiles
+Content-Type: application/json
+
+{ "name": 12345 }
