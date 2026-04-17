@@ -4,10 +4,10 @@ This is a Node.js backend application that integrates with three external APIs (
 
 ## Project Structure
 
-- `index.js`: Main entry point, sets up Express app and routes
+- `server.js`: Main entry point, sets up Express app and routes
 - `controllers/profileController.js`: Business logic for profile operations
 - `routes/profiles.js`: Route definitions for profile endpoints
-- `models/database.js`: Database initialization and connection
+- `models/prismaClient.js`: ORM setup
 - `package.json`: Dependencies and scripts
 - `README.md`: This documentation
 
