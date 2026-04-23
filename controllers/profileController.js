@@ -57,16 +57,19 @@ export async function getAllProfiles(req, res) {
     page = parseInt(page);
     limit = Math.min(parseInt(limit), 50);
 
+    const validSortFields = ['age', 'gender_probability', 'country_probability', 'created_at'];
+    const finalSortBy = validSortFields.includes(sort_by) ? sort_by : 'created_at';
+
     const where = {
       gender: gender ? { equals: gender, mode: 'insensitive' } : undefined,
       age_group: age_group ? { equals: age_group, mode: 'insensitive' } : undefined,
       country_id: country_id ? { equals: country_id, mode: 'insensitive' } : undefined,
-      age: {
-        gte: min_age ? parseInt(min_age) : undefined,
-        lte: max_age ? parseInt(max_age) : undefined
-      },
-      gender_probability: { gte: min_gender_probability ? parseFloat(min_gender_probability) : undefined },
-      country_probability: { gte: min_country_probability ? parseFloat(min_country_probability) : undefined }
+      AND: [
+        min_age ? { age: { gte: parseInt(min_age) } } : {},
+        max_age ? { age: { lte: parseInt(max_age) } } : {}
+      ].filter(obj => Object.keys(obj).length > 0),
+      gender_probability: min_gender_probability ? { gte: parseFloat(min_gender_probability) } : undefined,
+      country_probability: min_country_probability ? { gte: parseFloat(min_country_probability) } : undefined
     };
 
     const [total, data] = await Promise.all([
@@ -75,7 +78,7 @@ export async function getAllProfiles(req, res) {
         where,
         take: limit,
         skip: (page - 1) * limit,
-        orderBy: { [sort_by]: order }
+        orderBy: { [finalSortBy]: order === 'asc' ? 'asc' : 'desc' }
       })
     ]);
 
