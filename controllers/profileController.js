@@ -46,108 +46,6 @@ export async function getExternalData(name) {
     };
 }
 
-export async function createProfile(req, res) {
-    const { name } = req.body;
-
-    if (name === undefined || name === null) {
-        return res.status(400).json({ status: "error", message: "Missing or empty name" });
-    }
-    
-    if (typeof name !== 'string') {
-        return res.status(422).json({ status: "error", message: "Invalid type" });
-    }
-
-    
-    if (name.trim() === "") {
-        return res.status(400).json({ status: "error", message: "Missing or empty name" });
-    }
-
-    const trimmedName = name.trim();
-
-    try {
-        const existingProfile = await prisma.profile.findFirst({
-            where: {
-                name: {
-                    equals: trimmedName,
-                    mode: 'insensitive'
-                }
-            }
-        });
-
-        if (existingProfile) {
-            return res.status(201).json({
-                status: "success",
-                message: "Profile already exists",
-                data: existingProfile
-            });
-        }
-
-        const data = await getExternalData(trimmedName);
-
-        const newProfile = await prisma.profile.create({
-            data: {
-                id: uuidv7(),
-                name: trimmedName,
-                gender: data.gender,
-                gender_probability: data.gender_probability,
-                sample_size: data.sample_size,
-                age: data.age,
-                age_group: data.age_group,
-                country_id: data.country_id,
-                country_probability: data.country_probability,
-                created_at: new Date()
-            }
-        });
-
-        return res.status(201).json({
-            status: "success",
-            data: newProfile
-        });
-
-    } catch (error) {
-        if (error.message.includes('returned an invalid response')) {
-            return res.status(502).json({
-                status: "error",
-                message: error.message
-            });
-        }
-
-        if (error.isAxiosError) {
-            return res.status(502).json({
-                status: "error",
-                message: "Upstream server failure"
-            });
-        }
-
-        console.error(error);
-        return res.status(500).json({ status: "error", message: "Internal server error" });
-    }
-}
-
-export async function getProfile(req, res) {
-    const { id } = req.params;
-
-    try {
-        const profile = await prisma.profile.findUnique({
-            where: { id }
-        });
-
-        if (!profile) {
-            return res.status(404).json({
-                status: "error",
-                message: "Profile not found"
-            });
-        }
-
-        return res.status(200).json({
-            status: "success",
-            data: profile
-        });
-    } catch (error) {
-        return res.status(500).json({ status: "error", message: "Internal server error" });
-    }
-};
-
 export async function getAllProfiles(req, res) {
   try {
     let { 
@@ -184,51 +82,49 @@ export async function getAllProfiles(req, res) {
     res.status(200).json({ status: "success", page, limit, total, data });
   } catch (error) {
     res.status(422).json({ status: "error", message: "Invalid query parameters" });
-  }
+    }
 }
 
-export async function deleteProfile (req, res) {
-    const { id } = req.params;
-
-    try {
-        const deleteOp = await prisma.profile.deleteMany({
-            where: { id }
-        });
-
-        if (deleteOp.count === 0) {
-            return res.status(404).json({
-                status: "error",    
-                message: "Profile not found"
-            });
-        }
-
-        return res.status(204).send();
-    } catch (error) {
-        return res.status(500).json({ status: "error", message: "Internal server error" });
-    }
-};
-
 export async function searchProfiles(req, res) {
-  const { q, page = 1, limit = 10 } = req.query;
-  if (!q) return res.status(400).json({ status: "error", message: "Missing query" });
+  try {
+    const { q } = req.query; 
+    if (!q || q.trim() === "") {
+        return res.status(400).json({ status: "error", message: "Missing query" });
+    }
 
-  const query = q.toLowerCase();
-  const filters = {};
+    const query = q.toLowerCase();
+    const filters = {};
 
-  if (query.includes('male') && !query.includes('female')) filters.gender = 'male';
-  if (query.includes('female')) filters.gender = 'female';
-  if (query.includes('young')) { filters.min_age = 16; filters.max_age = 24; }
-  if (query.includes('adult')) filters.age_group = 'adult';
-  if (query.includes('teenager')) filters.age_group = 'teenager';
-  if (query.includes('senior')) filters.age_group = 'senior';
-  
-  const aboveMatch = query.match(/above\s(\d+)/);
-  if (aboveMatch) filters.min_age = parseInt(aboveMatch[1]) + 1;
+    if (query.includes('female')) filters.gender = 'female';
+    else if (query.includes('male')) filters.gender = 'male';
 
-  if (query.includes('nigeria')) filters.country_id = 'NG';
-  if (query.includes('kenya')) filters.country_id = 'KE';
-  if (query.includes('uganda')) filters.country_id = 'UG';
+    if (query.includes('young')) {
+      filters.min_age = "16"; 
+      filters.max_age = "24"; 
+    }
+    
+    if (query.includes('adult')) filters.age_group = 'adult';
+    if (query.includes('teenager')) filters.age_group = 'teenager';
+    if (query.includes('senior')) filters.age_group = 'senior';
 
-  req.query = { ...req.query, ...filters };
-  return getAllProfiles(req, res);
+    const aboveMatch = query.match(/above\s+(\d+)/);
+    if (aboveMatch) filters.min_age = (parseInt(aboveMatch[1]) + 1).toString(); 
+
+    const countries = { nigeria: 'NG', kenya: 'KE', uganda: 'UG', tanzania: 'TZ' };
+    for (const [name, id] of Object.entries(countries)) {
+      if (query.includes(name)) filters.country_id = id;
+    }
+
+    if (Object.keys(filters).length === 0) {
+      return res.status(400).json({ status: "error", message: "Unable to interpret query" });
+    }
+
+    req.query = { ...req.query, ...filters };
+    
+    return getAllProfiles(req, res);
+
+  } catch (error) {
+    console.error("Search Error:", error);
+    return res.status(500).json({ status: "error", message: "Internal server error" });
+  }
 }
