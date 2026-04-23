@@ -149,43 +149,43 @@ export async function getProfile(req, res) {
 };
 
 export async function getAllProfiles(req, res) {
-    const { gender, country_id, age_group } = req.query;
-    
-    const filter = {};
+  try {
+    let { 
+      page = 1, limit = 10, sort_by = 'created_at', order = 'desc',
+      gender, age_group, country_id, min_age, max_age, 
+      min_gender_probability, min_country_probability 
+    } = req.query;
 
-    if (gender) {
-        filter.gender = { equals: gender, mode: 'insensitive' };
-    }
-    if (country_id) {
-        filter.country_id = { equals: country_id, mode: 'insensitive' };
-    }
-    if (age_group) {
-        filter.age_group = { equals: age_group, mode: 'insensitive' };
-    }
+    page = parseInt(page);
+    limit = Math.min(parseInt(limit), 50);
 
-    try {
-        const profiles = await prisma.profile.findMany({
-            where: filter,
-            select: {
-                id: true,
-                name: true,
-                gender: true,
-                age: true,
-                age_group: true,
-                country_id: true,
-                created_at: true
-            }
-        });
+    const where = {
+      gender: gender ? { equals: gender, mode: 'insensitive' } : undefined,
+      age_group: age_group ? { equals: age_group, mode: 'insensitive' } : undefined,
+      country_id: country_id ? { equals: country_id, mode: 'insensitive' } : undefined,
+      age: {
+        gte: min_age ? parseInt(min_age) : undefined,
+        lte: max_age ? parseInt(max_age) : undefined
+      },
+      gender_probability: { gte: min_gender_probability ? parseFloat(min_gender_probability) : undefined },
+      country_probability: { gte: min_country_probability ? parseFloat(min_country_probability) : undefined }
+    };
 
-        return res.status(200).json({
-            status: "success",
-            count: profiles.length,
-            data: profiles
-        });
-    } catch (error) {
-        return res.status(500).json({ status: "error", message: "Internal server error" });
-    }
-};
+    const [total, data] = await Promise.all([
+      prisma.profile.count({ where }),
+      prisma.profile.findMany({
+        where,
+        take: limit,
+        skip: (page - 1) * limit,
+        orderBy: { [sort_by]: order }
+      })
+    ]);
+
+    res.status(200).json({ status: "success", page, limit, total, data });
+  } catch (error) {
+    res.status(422).json({ status: "error", message: "Invalid query parameters" });
+  }
+}
 
 export async function deleteProfile (req, res) {
     const { id } = req.params;
@@ -207,3 +207,28 @@ export async function deleteProfile (req, res) {
         return res.status(500).json({ status: "error", message: "Internal server error" });
     }
 };
+
+export async function searchProfiles(req, res) {
+  const { q, page = 1, limit = 10 } = req.query;
+  if (!q) return res.status(400).json({ status: "error", message: "Missing query" });
+
+  const query = q.toLowerCase();
+  const filters = {};
+
+  if (query.includes('male') && !query.includes('female')) filters.gender = 'male';
+  if (query.includes('female')) filters.gender = 'female';
+  if (query.includes('young')) { filters.min_age = 16; filters.max_age = 24; }
+  if (query.includes('adult')) filters.age_group = 'adult';
+  if (query.includes('teenager')) filters.age_group = 'teenager';
+  if (query.includes('senior')) filters.age_group = 'senior';
+  
+  const aboveMatch = query.match(/above\s(\d+)/);
+  if (aboveMatch) filters.min_age = parseInt(aboveMatch[1]) + 1;
+
+  if (query.includes('nigeria')) filters.country_id = 'NG';
+  if (query.includes('kenya')) filters.country_id = 'KE';
+  if (query.includes('uganda')) filters.country_id = 'UG';
+
+  req.query = { ...req.query, ...filters };
+  return getAllProfiles(req, res);
+}
