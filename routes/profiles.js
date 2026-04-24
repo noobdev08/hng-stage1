@@ -3,10 +3,10 @@ import { createProfile, getProfile, getAllProfiles, deleteProfile, searchProfile
 
 const router = express.Router();
 
+router.get('/search', searchProfiles);
 router.post('/', createProfile);
 router.get('/', getAllProfiles);
 router.get('/:id', getProfile);
 router.delete('/:id', deleteProfile);
-router.get('/search', searchProfiles);
 
 export default router;
