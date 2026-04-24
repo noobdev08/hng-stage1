@@ -96,7 +96,6 @@ function buildWhere(params) {
   };
 }
 
-
 export async function getAllProfiles(req, res) {
   try {
     let {
@@ -158,53 +157,47 @@ export async function getAllProfiles(req, res) {
 
 export async function searchProfiles(req, res) {
   try {
-    const { q, page, limit } = req.query;
-
-    if (!q || q.trim() === '') {
-      return res.status(400).json({ status: 'error', message: 'Missing query' });
+    const { q } = req.query; 
+    if (!q || q.trim() === "") {
+      return res.status(400).json({ status: "error", message: "Missing query" });
     }
 
-    const query = q.trim().toLowerCase();
+    const query = q.toLowerCase();
     const filters = {};
 
-    const hasMale = /\bmale\b/.test(query);
-    const hasFemale = /\bfemale\b/.test(query);
-    if (hasFemale && !hasMale) filters.gender = 'female';
-    else if (hasMale && !hasFemale) filters.gender = 'male';
+    if (query.includes('female')) filters.gender = 'female';
+    else if (query.includes('male')) filters.gender = 'male';
 
-    if (/\bchild\b|\bchildren\b/.test(query)) filters.age_group = 'child';
-    else if (/\bteenager(s)?\b/.test(query)) filters.age_group = 'teenager';
-    else if (/\badult(s)?\b/.test(query)) filters.age_group = 'adult';
-    else if (/\bsenior(s)?\b/.test(query)) filters.age_group = 'senior';
-
-    if (/\byoung\b/.test(query)) {
-      delete filters.age_group;
-      filters.min_age = '16';
-      filters.max_age = '24';
+    if (query.includes('young')) {
+      filters.min_age = "16"; 
+      filters.max_age = "24"; 
     }
+    if (query.includes('adult')) filters.age_group = 'adult';
+    if (query.includes('teenager')) filters.age_group = 'teenager';
+    if (query.includes('senior')) filters.age_group = 'senior';
 
-    const aboveMatch = query.match(/\babove\s+(\d+)/);
-    if (aboveMatch) {
-      filters.min_age = aboveMatch[1];
-    }
+    const aboveMatch = query.match(/above\s+(\d+)/);
+    if (aboveMatch) filters.min_age = (parseInt(aboveMatch[1]) + 1).toString(); 
 
-    for (const [name, id] of Object.entries(COUNTRY_NAME_TO_ID)) {
-      if (query.includes(name)) {
-        filters.country_id = id;
-        break;
-      }
+    const countries = { nigeria: 'NG', kenya: 'KE', uganda: 'UG', tanzania: 'TZ' };
+    for (const [name, id] of Object.entries(countries)) {
+      if (query.includes(name)) filters.country_id = id;
     }
 
     if (Object.keys(filters).length === 0) {
-      return res.status(400).json({ status: 'error', message: 'Unable to interpret query' });
+      return res.status(400).json({ 
+        status: "error", 
+        message: "Unable to interpret query"
+      });
     }
 
-    req.query = { ...filters, ...(page && { page }), ...(limit && { limit }) };
+    req.query = Object.assign({}, req.query, filters);
+    
     return getAllProfiles(req, res);
 
   } catch (error) {
-    console.error('searchProfiles error:', error);
-    return res.status(500).json({ status: 'error', message: 'Internal server error' });
+    console.error("Search Crash:", error);
+    return res.status(400).json({ status: "error", message: "Unable to interpret query" });
   }
 }
 
