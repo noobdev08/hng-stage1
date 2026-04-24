@@ -4,7 +4,7 @@ import prisma from './models/prismaClient.js';
 
 async function seed() {
   const fileData = JSON.parse(fs.readFileSync('./seed_profiles.json', 'utf8'));
-  const profiles = fileData.profiles;t
+  const profiles = fileData.profiles;
 
   console.log(`Found ${profiles.length} profiles. Starting seed...`);
 
@@ -22,7 +22,7 @@ async function seed() {
         country_id: p.country_id,
         country_name: p.country_name,
         country_probability: p.country_probability,
-        created_at: new Date().toISOString(),
+        created_at: new Date(),
       },
     });
   }
